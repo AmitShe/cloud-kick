@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#131c40">
+  <meta name="apple-mobile-web-app-title" content="כדור בעננים">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="description" content="משחק מגע לקטנטנים. מקפיצים כדור לעננים ומבקיעים שער!">
+  <title>כדור בעננים</title>
+  <link rel="icon" href="assets/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" sizes="180x180">
+  <link rel="manifest" href="manifest.json">
+  <link rel="preload" href="assets/stadium.webp" as="image">
+  <link rel="stylesheet" href="style.css">
+  <script src="game.js" defer></script>
+</head>
+<body>
+  <main class="game">
+    <header class="top">
+      <a class="home" href="https://amitshe.github.io/" aria-label="מגרש המשחקים">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 4l9 7M6 10v9h12v-9M10 19v-5h4v5"/></svg>
+      </a>
+      <div class="stars" role="img" aria-label="0 מתוך 3 כוכבים">
+        <span></span><span></span><span></span>
+      </div>
+      <button class="sound" id="sound" type="button" aria-label="צליל" aria-pressed="true">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 9h4l4-4v14l-4-4H4z"/>
+          <path class="waves" d="M16 9c2 1.8 2 4.2 0 6m2.5-8c3 3 3 7 0 10"/>
+          <path class="mute" d="m16 10 4 4m0-4-4 4"/>
+        </svg>
+      </button>
+    </header>
+
+    <section class="scene" id="scene" data-state="intro" aria-label="מגרש הכדורגל בעננים">
+      <img class="stadium" src="assets/stadium.webp" alt="" draggable="false">
+      <div class="sunlight" aria-hidden="true"></div>
+      <img class="goal" src="assets/goal.webp" alt="" draggable="false">
+      <img class="crane" src="assets/crane.webp" alt="" draggable="false">
+      <div class="cable" id="cable" aria-hidden="true"></div>
+      <div class="ball-shadow" aria-hidden="true"></div>
+      <button class="piece plane" id="plane" aria-label="מטוס" type="button" disabled>
+        <img src="assets/plane.webp" alt="" draggable="false">
+      </button>
+      <button class="piece hook" id="hook" aria-label="וו המנוף" type="button" disabled>
+        <span class="magnet" aria-hidden="true"></span>
+      </button>
+      <button class="piece ball" id="ball" aria-label="כדור" type="button" disabled>
+        <img src="assets/ball.webp" alt="" draggable="false">
+      </button>
+      <div class="particles" id="particles" aria-hidden="true"></div>
+
+      <div class="intro">
+        <h1>כדור<br><em>בעננים</em></h1>
+      </div>
+      <div class="cheer" id="cheer" aria-hidden="true">גול!</div>
+      <div class="finale" id="finale" hidden>
+        <div class="medal" aria-hidden="true"><span></span></div>
+        <h2>איזה אלוף!</h2>
+        <p>שלושה גולים בשמיים</p>
+      </div>
+    </section>
+
+    <footer class="controls">
+      <p class="hint" id="hint" role="status">משחק קטן בשמיים</p>
+      <button class="action" id="action" type="button">
+        <span class="action-symbol" aria-hidden="true"></span>
+        <span id="action-text">בואו נשחק</span>
+      </button>
+    </footer>
+  </main>
+</body>
+</html>
