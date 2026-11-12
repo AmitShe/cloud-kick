@@ -123,7 +123,7 @@ img { -webkit-user-drag: none; }
   background: #263d216e; filter: blur(4px); border-radius: 50%;
   transition: opacity .18s;
 }
-.scene:not([data-state="ball"]):not([data-state="intro"]) .ball-shadow { opacity: 0; }
+.scene:not([data-state="kick"]):not([data-state="intro"]) .ball-shadow { opacity: 0; }
 .piece {
   z-index: 3;
   transform: none;
@@ -139,13 +139,14 @@ img { -webkit-user-drag: none; }
 }
 .piece:disabled { pointer-events: none; }
 .piece:not(:disabled) { cursor: pointer; z-index: 6; }
+.piece:not(:disabled):is(.ball, .plane) { touch-action: none; }
 .piece img { width: 100%; display: block; pointer-events: none; }
 .plane { left: 25%; top: 40%; width: 37%; min-height: 64px; }
 .plane img { filter: drop-shadow(0 8px 8px #075a8b54); }
 .ball { left: 40%; top: 76%; width: 23%; aspect-ratio: 1; min-width: 54px; }
 .ball img { width: 86%; filter: drop-shadow(0 5px 4px #22382565); }
-.scene[data-round="1"] .ball img { filter: sepia(.3) hue-rotate(305deg) saturate(1.7) drop-shadow(0 5px 4px #22382565); }
-.scene[data-round="2"] .ball img { filter: sepia(.35) hue-rotate(82deg) saturate(1.6) drop-shadow(0 5px 4px #22382565); }
+.scene[data-level="1"] .ball { width: 19%; }
+.scene[data-level="2"] .ball { width: 16%; }
 .hook { left: 62%; top: 38%; width: 19%; aspect-ratio: 1; min-width: 52px; z-index: 4; }
 .magnet {
   display: block;
@@ -207,8 +208,61 @@ img { -webkit-user-drag: none; }
 }
 .intro em { font-style: normal; color: #ffdd65; }
 .scene:not([data-state="intro"]) .intro { display: none; }
-.scene[data-state="intro"] .plane { animation: floating 3s ease-in-out infinite; }
+.scene[data-state="intro"] .plane { left: 23%; top: 54%; width: 30%; animation: floating 3s ease-in-out infinite; }
 @keyframes floating { 50% { translate: -50% calc(-50% - 7px); rotate: -3deg; } }
+.spider {
+  position: absolute;
+  z-index: 4;
+  width: 35%;
+  left: 7%;
+  top: 17%;
+  pointer-events: none;
+  filter: drop-shadow(0 7px 6px #14447865);
+  transform-origin: 65% 50%;
+}
+.spider.shoot { rotate: 8deg; scale: 1.09; transition: rotate .18s, scale .18s; }
+.scene[data-state="intro"] .spider { width: 31%; left: 5%; top: 29%; rotate: -10deg; }
+.scene:not([data-state="intro"]):not([data-level="1"]) .spider { visibility: hidden; }
+.scene[data-level="1"] :is(.plane, .crane, .hook, .cable) { visibility: hidden; }
+.scene[data-level="0"]:not([data-state="intro"]) :is(.plane, .crane, .hook, .cable) { opacity: .32; }
+.mission {
+  position: absolute;
+  top: 4%;
+  left: 50%;
+  z-index: 7;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  padding: 9px 17px;
+  color: #1b3357;
+  background: #fff6df;
+  border: 2px solid #fffdf1;
+  border-radius: 999px;
+  box-shadow: 0 3px 0 #c2def2, 0 6px 16px #123b6954;
+  font-size: clamp(.87rem, 4vw, 1.12rem);
+  font-weight: 850;
+  pointer-events: none;
+}
+.guides { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; overflow: visible; }
+.guides line { visibility: hidden; stroke-linecap: round; }
+.guides .visible { visibility: visible; }
+#guide { stroke: #fff2ad; stroke-width: 4; stroke-dasharray: 2 9; filter: drop-shadow(0 1px 1px #23619f); }
+#web { stroke: #fff; stroke-width: 3; filter: drop-shadow(0 1px 1px #2b5595); }
+.aligned #guide { stroke: #d5ff9d; }
+.scene:is([data-state="kick"], [data-state="drop"]).aligned .goal,
+.scene[data-state="kick"].help .goal { filter: drop-shadow(0 0 5px #fffdba) drop-shadow(0 0 10px #e8ff85); }
+.scene[data-state="taxi"] .hook::before {
+  content: "";
+  position: absolute;
+  inset: -6%;
+  border-radius: 50%;
+  border: 3px dashed #fff3a4;
+  box-shadow: 0 0 15px #ffe574;
+}
+.scene[data-state="taxi"].aligned .hook::before { border-color: #d5ff9d; box-shadow: 0 0 18px #bbff8e; }
+.scene[data-state="drop"] .hook:not(:disabled)::before { inset: 3%; }
+.scene[data-state="drop"].aligned .hook:not(:disabled)::before { border-color: #d5ff9d; }
+.scene[data-state="catch"].help .ball { filter: drop-shadow(0 0 8px #ffed82); }
+.scene.dragging .piece:not(:disabled)::before, .scene.dragging .piece:not(:disabled)::after { opacity: .42; animation: none; }
 .cheer {
   position: absolute;
   inset: 42% 0 auto;
@@ -299,6 +353,7 @@ img { -webkit-user-drag: none; }
 .action[data-icon] .action-symbol::before { width: 24px; height: 24px; background: center / contain no-repeat var(--symbol); clip-path: none; }
 .action[data-icon="ball"] { --symbol: url("assets/ball.webp"); }
 .action[data-icon="plane"] { --symbol: url("assets/plane.webp"); }
+.action[data-icon="web"] { --symbol: url("assets/spider.svg"); }
 .action[data-icon="hook"] .action-symbol::before {
   width: 19px;
   height: 15px;

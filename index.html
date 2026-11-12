@@ -6,14 +6,14 @@
   <meta name="theme-color" content="#131c40">
   <meta name="apple-mobile-web-app-title" content="כדור בעננים">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="description" content="משחק מגע לקטנטנים. מקפיצים כדור לעננים ומבקיעים שער!">
+  <meta name="description" content="שלושה אתגרי מגע במגרש בעננים, עם כדורגל, ספיידרמן, מטוס ומנוף.">
   <title>כדור בעננים</title>
   <link rel="icon" href="assets/icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" sizes="180x180">
   <link rel="manifest" href="manifest.json">
   <link rel="preload" href="assets/stadium.webp" as="image">
-  <link rel="stylesheet" href="style.css">
-  <script src="game.js" defer></script>
+  <link rel="stylesheet" href="style.css?v=2">
+  <script src="game.js?v=2" defer></script>
 </head>
 <body>
   <main class="game">
@@ -36,10 +36,15 @@
     <section class="scene" id="scene" data-state="intro" aria-label="מגרש הכדורגל בעננים">
       <img class="stadium" src="assets/stadium.webp" alt="" draggable="false">
       <div class="sunlight" aria-hidden="true"></div>
-      <img class="goal" src="assets/goal.webp" alt="" draggable="false">
+      <img class="goal" id="goal" src="assets/goal.webp" alt="" draggable="false">
       <img class="crane" src="assets/crane.webp" alt="" draggable="false">
       <div class="cable" id="cable" aria-hidden="true"></div>
-      <div class="ball-shadow" aria-hidden="true"></div>
+      <div class="ball-shadow" id="ball-shadow" aria-hidden="true"></div>
+      <img class="spider" id="spider" src="assets/spider.svg" alt="ספיידרמן" draggable="false">
+      <svg class="guides" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+        <line id="guide" vector-effect="non-scaling-stroke"/>
+        <line id="web" vector-effect="non-scaling-stroke"/>
+      </svg>
       <button class="piece plane" id="plane" aria-label="מטוס" type="button" disabled>
         <img src="assets/plane.webp" alt="" draggable="false">
       </button>
@@ -54,11 +59,12 @@
       <div class="intro">
         <h1>כדור<br><em>בעננים</em></h1>
       </div>
+      <div class="mission" id="mission" aria-hidden="true" hidden></div>
       <div class="cheer" id="cheer" aria-hidden="true">גול!</div>
       <div class="finale" id="finale" hidden>
         <div class="medal" aria-hidden="true"><span></span></div>
         <h2>איזה אלוף!</h2>
-        <p>שלושה גולים בשמיים</p>
+        <p>כל שלושת האתגרים הושלמו</p>
       </div>
     </section>
 

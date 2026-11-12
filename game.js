@@ -16,27 +16,6 @@ const cable = document.querySelector("#cable");
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 const muteKey = "cloud-kick:muted";
 
-const steps = {
-  intro: { label: "בואו נשחק", hint: "משחק קטן בשמיים" },
-  ball: { label: "להקפיץ כדור", hint: "נוגעים בכדור הזוהר", target: ball, icon: "ball" },
-  plane: { label: "להטיס את הכדור", hint: "נוגעים במטוס הזוהר", target: plane, icon: "plane" },
-  hook: { label: "להוריד את המנוף", hint: "נוגעים בוו הזוהר", target: hook, icon: "hook" },
-  moving: { label: "הכדור בדרך", hint: "הנה הוא בא…", icon: "ball" },
-  goal: { label: "גול!", hint: "כוכב חדש!", icon: "star" },
-  done: { label: "עוד סיבוב", hint: "כל הכוכבים שלך", icon: "star" }
-};
-
-const start = {
-  ball: { left: "40%", top: "76%", rotate: "0deg", scale: "1", opacity: "1" },
-  plane: { left: "25%", top: "40%", rotate: "0deg", scale: "1" },
-  hook: { left: "62%", top: "38%" },
-  cable: { height: "5%" }
-};
-const caught = { left: "28%", top: "49%", rotate: "340deg", scale: ".53" };
-const onHook = { left: "62%", top: "44%", rotate: "605deg", scale: ".53" };
-
-let state = "intro";
-let goals = 0;
 let muted = false;
 let audio;
 
@@ -82,27 +61,174 @@ soundButton.addEventListener("click", () => {
   else notes([523, 784]);
 });
 
-function show(next) {
+const goal = document.querySelector("#goal");
+const spider = document.querySelector("#spider");
+const shadow = document.querySelector("#ball-shadow");
+const guide = document.querySelector("#guide");
+const web = document.querySelector("#web");
+const mission = document.querySelector("#mission");
+
+const kickoff = { x: 40, y: 77 };
+const runway = { x: 23, y: 44 };
+const pickup = { x: 62, y: 38 };
+const glove = { x: 37, y: 29 };
+const states = {
+  intro: ["", "משחק קטן בשמיים", "בואו נשחק"],
+  kick: ["בעיטה לשער", "גוררים את הכדור לכיוון השער ומשחררים", "רמז", "ball"],
+  catch: ["ספיידרמן תופס!", "נוגעים בכדור לפני שהוא עף", "רמז", "web"],
+  taxi: ["מטוס ומנוף", "גוררים את המטוס אל הוו הזוהר", "רמז", "plane"],
+  drop: ["מטוס ומנוף", "נוגעים בוו כשהכדור מעל השער", "לשחרר כדור", "hook"],
+  busy: ["", "", "הכדור בדרך", "ball"],
+  goal: ["", "כוכב חדש!", "גול!", "star"],
+  done: ["", "כל הכוכבים שלך", "עוד סיבוב", "star"]
+};
+
+let state = "intro";
+let level = 0;
+let playthrough = 0;
+let goals = 0;
+let goalX = 58;
+let ballAt = kickoff;
+let planeAt = runway;
+let hookAt = pickup;
+let drag;
+let frame;
+let slowUntil = 0;
+let hintTimer;
+
+function setState(next) {
+  cancelAnimationFrame(frame);
+  clearTimeout(hintTimer);
+  scene.classList.remove("help", "aligned", "dragging");
+  showLine(guide);
   state = next;
   scene.dataset.state = next;
-  const { label, hint: message, target, icon } = steps[next];
-  for (const piece of [ball, plane, hook]) piece.disabled = piece !== target;
+  scene.dataset.level = level;
+  const [title, message, label, icon] = states[next];
+  if (next !== "busy" && next !== "goal") mission.textContent = title;
+  mission.hidden = next === "intro" || next === "done";
+  if (message) hint.textContent = message;
   actionText.textContent = label;
-  hint.textContent = message;
   if (icon) action.dataset.icon = icon;
   else delete action.dataset.icon;
-  action.setAttribute("aria-disabled", String(next === "moving" || next === "goal"));
+  action.setAttribute("aria-disabled", String(next === "busy" || next === "goal"));
+  ball.disabled = next !== "kick" && next !== "catch";
+  plane.disabled = next !== "taxi";
+  hook.disabled = next !== "drop";
   finale.hidden = next !== "done";
 }
 
+function place(element, { x, y }) {
+  element.style.left = x + "%";
+  element.style.top = y + "%";
+}
+
+function placeBall(point) {
+  ballAt = point;
+  place(ball, point);
+}
+
+function placePlane(point) {
+  planeAt = point;
+  place(plane, point);
+  placeBall({ x: point.x + 4, y: point.y + 8 });
+}
+
+function placeHook(point) {
+  hookAt = point;
+  place(hook, point);
+  cable.style.left = point.x + "%";
+}
+
+function showLine(line, from, to) {
+  line.classList.toggle("visible", Boolean(from));
+  if (!from) return;
+  line.setAttribute("x1", from.x);
+  line.setAttribute("y1", from.y);
+  line.setAttribute("x2", to.x);
+  line.setAttribute("y2", to.y);
+}
+
+function pause(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function flyBall(points, time, turn = 360) {
+  const motion = ball.animate(points.map((point, index) => ({
+    left: point.x + "%",
+    top: point.y + "%",
+    rotate: turn * index / (points.length - 1) + "deg"
+  })), { duration: reducedMotion.matches ? 150 : time, easing: "ease-in-out", fill: "forwards" });
+  await motion.finished;
+  placeBall(points.at(-1));
+  motion.cancel();
+}
+
 function resetPieces() {
-  Object.assign(ball.style, start.ball);
-  Object.assign(plane.style, start.plane);
-  Object.assign(hook.style, start.hook);
-  Object.assign(cable.style, start.cable);
-  scene.dataset.round = goals;
+  place(plane, runway);
+  planeAt = runway;
+  placeHook(pickup);
+  placeBall(kickoff);
+  place(shadow, { x: kickoff.x, y: 81 });
+  showLine(web);
   cheer.classList.remove("show");
   particles.replaceChildren();
+  spider.classList.remove("shoot");
+  goal.style.left = goalX + "%";
+}
+
+function beginLevel() {
+  goalX = level === 2 ? (playthrough % 2 ? 77 : 60) : (playthrough % 2 ? 66 : 56);
+  resetPieces();
+  if (level === 0) {
+    setState("kick");
+    if (playthrough === 0) hintFor("kick");
+  }
+  if (level === 1) startCatch();
+  if (level === 2) {
+    placePlane(runway);
+    setState("taxi");
+    if (playthrough === 0) hintFor("taxi");
+  }
+}
+
+function animateTarget(update) {
+  let last = performance.now();
+  let time = 0;
+  slowUntil = 0;
+  function tick(now) {
+    const speed = reducedMotion.matches || now < slowUntil ? .47 : 1;
+    time += Math.max(0, Math.min(now - last, 48)) * speed;
+    last = now;
+    update(time);
+    frame = requestAnimationFrame(tick);
+  }
+  update(0);
+  frame = requestAnimationFrame(tick);
+}
+
+function startCatch() {
+  setState("catch");
+  animateTarget(time => {
+    const phase = time / 690 + (playthrough % 2) * Math.PI;
+    placeBall({ x: 66 + 19 * Math.sin(phase), y: 39 + 6 * Math.sin(phase * 1.35) });
+  });
+}
+
+function startDrop(fromX = pickup.x) {
+  setState("drop");
+  const initial = Math.asin(Math.max(-1, Math.min(1, (fromX - 73) / 11)));
+  animateTarget(time => {
+    const x = 73 + 11 * Math.sin(initial + time / 650);
+    placeHook({ x, y: pickup.y });
+    placeBall({ x, y: 45 });
+    showLine(guide, ballAt, { x, y: 65 });
+    scene.classList.toggle("aligned", dropAligned(x));
+  });
+}
+
+function dropAligned(x) {
+  return Math.abs(x - goalX) <= 9;
 }
 
 function updateStars() {
@@ -112,118 +238,210 @@ function updateStars() {
   stars.setAttribute("aria-label", `${goals} מתוך 3 כוכבים`);
 }
 
-async function move(element, frames, duration, easing = "ease-in-out") {
-  const motion = element.animate(frames, { duration: reducedMotion.matches ? 140 : duration, easing, fill: "forwards" });
-  await motion.finished;
-  Object.assign(element.style, frames.at(-1));
-  motion.cancel();
-}
-
-function kick() {
-  notes([262, 440, 660], { interval: .07, wave: "triangle", volume: .065 });
-  return move(ball, [
-    start.ball,
-    { left: goals === 1 ? "49%" : "22%", top: "48%", rotate: "180deg", scale: ".77" },
-    { left: "23%", top: "43%", rotate: "270deg", scale: ".62" },
-    caught
-  ], 690, "cubic-bezier(.22,.7,.36,1)");
-}
-
-async function fly() {
-  notes([330, 440, 554, 740, 554], { interval: .12, wave: "triangle", volume: .045 });
-  await Promise.all([
-    move(plane, [
-      start.plane,
-      { left: "42%", top: "24%", rotate: "-13deg", scale: "1.05" },
-      { left: "63%", top: "34%", rotate: "8deg", scale: ".85" }
-    ], 790),
-    move(ball, [
-      caught,
-      { left: "44%", top: "34%", rotate: "450deg", scale: ".55" },
-      onHook
-    ], 790)
-  ]);
-  await move(plane, [
-    { left: "63%", top: "34%", rotate: "8deg", scale: ".85" },
-    { left: "48%", top: "41%", rotate: "-7deg", scale: ".88" },
-    start.plane
-  ], 460);
-}
-
-async function lower() {
-  notes([784, 659, 523, 392], { interval: .12, volume: .075 });
-  const lowHook = { left: "62%", top: "56%" };
-  await Promise.all([
-    move(cable, [start.cable, { height: "23%" }], 590),
-    move(hook, [start.hook, lowHook], 590),
-    move(ball, [onHook, { left: "62%", top: "62%", rotate: "670deg", scale: ".53" }], 590)
-  ]);
-  await move(ball, [
-    { left: "62%", top: "62%", rotate: "670deg", scale: ".53" },
-    { left: "57%", top: "66%", rotate: "755deg", scale: ".37", opacity: "1" }
-  ], 285, "cubic-bezier(.55,.05,.68,.5)");
-}
-
 function burst() {
   if (reducedMotion.matches) return;
   const colors = ["#fff1a1", "#ffab6c", "#a7f6e5", "#ff9cc4", "#fffdf4"];
-  for (let index = 0; index < 22; index++) {
+  for (let index = 0; index < 20; index++) {
     const spark = document.createElement("i");
     spark.className = "spark";
-    const angle = index * Math.PI * 2 / 22;
+    spark.style.left = goalX + "%";
+    const angle = index * Math.PI * 2 / 20;
     const distance = scene.clientWidth * (.19 + (index % 4) * .085);
-    spark.style.setProperty("--dx", `${Math.cos(angle) * distance}px`);
-    spark.style.setProperty("--dy", `${Math.sin(angle) * distance * .77}px`);
-    spark.style.setProperty("--size", `${12 + (index % 5) * 4}px`);
+    spark.style.setProperty("--dx", Math.cos(angle) * distance + "px");
+    spark.style.setProperty("--dy", Math.sin(angle) * distance * .77 + "px");
+    spark.style.setProperty("--size", 12 + (index % 5) * 4 + "px");
     spark.style.setProperty("--color", colors[index % colors.length]);
-    spark.style.setProperty("--spin", `${index * 37}deg`);
+    spark.style.setProperty("--spin", index * 37 + "deg");
     particles.append(spark);
   }
 }
 
-async function playStep() {
-  if (state === "moving" || state === "goal") return;
-  if (state === "intro" || state === "done") {
-    goals = 0;
-    updateStars();
-    resetPieces();
-    show("ball");
-    notes([392, 523, 659], { wave: "triangle", volume: .075 });
-    return;
-  }
-
-  const step = state;
-  show("moving");
-  if (step === "ball") {
-    await kick();
-    show("plane");
-    return;
-  }
-  if (step === "plane") {
-    await fly();
-    show("hook");
-    return;
-  }
-
-  await lower();
+async function score() {
   goals++;
   updateStars();
-  show("goal");
+  setState("goal");
   cheer.classList.add("show");
   burst();
-  notes(goals === 3 ? [523, 659, 784, 1047, 1319] : [523, 659, 784, 1047], { interval: .105, length: .28, wave: "triangle", volume: .08 });
-  await new Promise(resolve => setTimeout(resolve, 1050));
+  notes(goals === 3 ? [523, 659, 784, 1047, 1319] : [523, 659, 784, 1047], {
+    interval: .105, length: .28, wave: "triangle", volume: .08
+  });
+  await pause(1150);
   if (goals === 3) {
-    show("done");
+    cheer.classList.remove("show");
+    setState("done");
   } else {
-    resetPieces();
-    show("ball");
+    level++;
+    beginLevel();
   }
 }
 
-action.addEventListener("click", playStep);
-for (const piece of [ball, plane, hook]) piece.addEventListener("click", event => {
-  playStep();
-  if (event.detail === 0) action.focus({ preventScroll: true });
+function aimX(dx, dy) {
+  return kickoff.x + dx * (kickoff.y - 64) / Math.max(-dy, 2);
+}
+
+async function kick(dx, dy) {
+  if (dy > -4) return hintFor("kick");
+  setState("busy");
+  notes([262, 440, 660], { interval: .07, wave: "triangle", volume: .065 });
+  const x = aimX(dx, dy);
+  if (Math.abs(x - goalX) <= 12) {
+    await flyBall([kickoff, { x: (kickoff.x + x) / 2, y: 58 }, { x, y: 66 }], 580);
+    await score();
+  } else {
+    const edge = Math.max(8, Math.min(92, x));
+    await flyBall([kickoff, { x: edge, y: 62 }, { x: edge, y: 72 }, kickoff], 750);
+    setState("kick");
+    hint.textContent = "כמעט! מכוונים שוב לשער";
+    hintFor("kick");
+  }
+}
+
+async function catchBall() {
+  if (state !== "catch") return;
+  const from = ballAt;
+  setState("busy");
+  spider.classList.add("shoot");
+  showLine(web, glove, from);
+  notes([587, 880, 1175], { interval: .055, wave: "triangle", volume: .075 });
+  const caught = { x: 43, y: 34 };
+  const retract = web.animate([{ opacity: 1 }, { opacity: .85 }], 270);
+  await flyBall([from, caught], 285, -90);
+  retract.cancel();
+  showLine(web, glove, caught);
+  await pause(100);
+  showLine(web);
+  spider.classList.remove("shoot");
+  await flyBall([caught, { x: goalX + 5, y: 47 }, { x: goalX, y: 66 }], 530);
+  await score();
+}
+
+function dropBall() {
+  if (state !== "drop") return;
+  const from = ballAt;
+  const hit = dropAligned(from.x);
+  setState("busy");
+  notes([659, 523, 392], { interval: .09, volume: .07 });
+  flyBall([from, { x: from.x, y: hit ? 66 : 73 }], 490, 170).then(async () => {
+    if (hit) {
+      await score();
+    } else {
+      await flyBall([ballAt, from], 470, -120);
+      startDrop(from.x);
+      hint.textContent = "כמעט! חכו שהכדור יהיה מעל השער";
+    }
+  });
+}
+
+function position(event) {
+  const bounds = scene.getBoundingClientRect();
+  return {
+    x: (event.clientX - bounds.left) / bounds.width * 100,
+    y: (event.clientY - bounds.top) / bounds.height * 100
+  };
+}
+
+function startDrag(event) {
+  const kind = event.currentTarget === ball ? "kick" : "taxi";
+  if (state !== kind || drag || event.button !== 0) return;
+  const start = position(event);
+  const origin = kind === "kick" ? kickoff : planeAt;
+  drag = { id: event.pointerId, kind, start, origin };
+  event.currentTarget.setPointerCapture(event.pointerId);
+  scene.classList.add("dragging");
+}
+
+function updateDrag(event) {
+  if (drag?.id !== event.pointerId) return;
+  const point = position(event);
+  const dx = point.x - drag.start.x;
+  const dy = point.y - drag.start.y;
+  if (drag.kind === "kick") {
+    const x = aimX(dx, dy);
+    showLine(guide, kickoff, {
+      x: dy < -4 ? Math.max(1, Math.min(99, x)) : point.x,
+      y: dy < -4 ? 64 : point.y
+    });
+    scene.classList.toggle("aligned", dy < -4 && Math.abs(x - goalX) <= 12);
+    placeBall({ x: kickoff.x + dx * .18, y: kickoff.y + dy * .18 });
+  } else {
+    placePlane({
+      x: Math.max(15, Math.min(82, drag.origin.x + dx)),
+      y: Math.max(23, Math.min(71, drag.origin.y + dy))
+    });
+    scene.classList.toggle("aligned", canDock());
+  }
+}
+
+function canDock() {
+  return Math.abs(planeAt.x + 8 - pickup.x) <= 13 && Math.abs(planeAt.y + 4 - pickup.y) <= 12;
+}
+
+function endDrag(event) {
+  if (drag?.id !== event.pointerId) return;
+  if (event.type === "pointerup") updateDrag(event);
+  const { kind, start } = drag;
+  drag = undefined;
+  scene.classList.remove("dragging", "aligned");
+  showLine(guide);
+  if (kind === "kick") {
+    placeBall(kickoff);
+    if (event.type === "pointerup") {
+      const point = position(event);
+      kick(point.x - start.x, point.y - start.y);
+    }
+  } else if (event.type === "pointerup" && canDock()) {
+    notes([330, 554, 740], { interval: .085, wave: "triangle", volume: .075 });
+    place(plane, runway);
+    planeAt = runway;
+    startDrop();
+  } else if (event.type === "pointerup") {
+    hint.textContent = "משחררים את המטוס ליד העיגול הזוהר";
+  }
+}
+
+function hintFor(kind) {
+  clearTimeout(hintTimer);
+  scene.classList.add("help");
+  if (kind === "kick") showLine(guide, kickoff, { x: goalX, y: 64 });
+  if (kind === "taxi") showLine(guide, planeAt, pickup);
+  if (kind === "catch") slowUntil = performance.now() + 3500;
+  hintTimer = setTimeout(() => {
+    scene.classList.remove("help");
+    if (!drag) showLine(guide);
+  }, 2400);
+}
+
+function nextAction() {
+  if (state === "intro" || state === "done") {
+    if (state === "done") playthrough++;
+    goals = 0;
+    level = 0;
+    updateStars();
+    beginLevel();
+    notes([392, 523, 659], { wave: "triangle", volume: .075 });
+  } else if (state === "drop") {
+    dropBall();
+  } else if (["kick", "taxi", "catch"].includes(state)) {
+    hintFor(state);
+  }
+}
+
+for (const piece of [ball, plane]) {
+  piece.addEventListener("pointerdown", startDrag);
+  piece.addEventListener("pointermove", updateDrag);
+  for (const event of ["pointerup", "pointercancel", "lostpointercapture"]) {
+    piece.addEventListener(event, endDrag);
+  }
+}
+ball.addEventListener("pointerdown", event => {
+  if (event.button === 0 && state === "catch") {
+    event.preventDefault();
+    catchBall();
+  }
 });
-show("intro");
+ball.addEventListener("click", event => {
+  if (event.detail === 0 && state === "catch") catchBall();
+});
+hook.addEventListener("click", dropBall);
+action.addEventListener("click", nextAction);
+setState("intro");
