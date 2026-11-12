@@ -12,11 +12,11 @@
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" sizes="180x180">
   <link rel="manifest" href="manifest.json">
   <link rel="preload" href="assets/stadium.webp" as="image">
-  <link rel="stylesheet" href="style.css?v=2">
-  <script src="game.js?v=2" defer></script>
+  <link rel="stylesheet" href="style.css?v=3">
+  <script src="game.js?v=3" defer></script>
 </head>
 <body>
-  <main class="game">
+  <main class="game" data-state="intro">
     <header class="top">
       <a class="home" href="https://amitshe.github.io/" aria-label="מגרש המשחקים">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 4l9 7M6 10v9h12v-9M10 19v-5h4v5"/></svg>
@@ -37,10 +37,14 @@
       <img class="stadium" src="assets/stadium.webp" alt="" draggable="false">
       <div class="sunlight" aria-hidden="true"></div>
       <img class="goal" id="goal" src="assets/goal.webp" alt="" draggable="false">
+      <div class="keeper" id="keeper" aria-hidden="true">
+        <span class="keeper-face"></span>
+      </div>
       <img class="crane" src="assets/crane.webp" alt="" draggable="false">
       <div class="cable" id="cable" aria-hidden="true"></div>
       <div class="ball-shadow" id="ball-shadow" aria-hidden="true"></div>
       <img class="spider" id="spider" src="assets/spider.svg" alt="ספיידרמן" draggable="false">
+      <div class="hoop" id="hoop" aria-hidden="true"></div>
       <svg class="guides" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
         <line id="guide" vector-effect="non-scaling-stroke"/>
         <line id="web" vector-effect="non-scaling-stroke"/>
@@ -59,7 +63,6 @@
       <div class="intro">
         <h1>כדור<br><em>בעננים</em></h1>
       </div>
-      <div class="mission" id="mission" aria-hidden="true" hidden></div>
       <div class="cheer" id="cheer" aria-hidden="true">גול!</div>
       <div class="finale" id="finale" hidden>
         <div class="medal" aria-hidden="true"><span></span></div>
@@ -69,7 +72,10 @@
     </section>
 
     <footer class="controls">
-      <p class="hint" id="hint" role="status">משחק קטן בשמיים</p>
+      <div class="instructions">
+        <h2 class="mission" id="mission" hidden></h2>
+        <p class="hint" id="hint" role="status"></p>
+      </div>
       <button class="action" id="action" type="button">
         <span class="action-symbol" aria-hidden="true"></span>
         <span id="action-text">בואו נשחק</span>

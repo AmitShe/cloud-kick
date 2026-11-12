@@ -67,20 +67,23 @@ const shadow = document.querySelector("#ball-shadow");
 const guide = document.querySelector("#guide");
 const web = document.querySelector("#web");
 const mission = document.querySelector("#mission");
+const game = document.querySelector(".game");
+const keeper = document.querySelector("#keeper");
+const hoop = document.querySelector("#hoop");
 
 const kickoff = { x: 40, y: 77 };
 const runway = { x: 23, y: 44 };
 const pickup = { x: 62, y: 38 };
 const glove = { x: 37, y: 29 };
 const states = {
-  intro: ["", "משחק קטן בשמיים", "בואו נשחק"],
-  kick: ["בעיטה לשער", "גוררים את הכדור לכיוון השער ומשחררים", "רמז", "ball"],
-  catch: ["ספיידרמן תופס!", "נוגעים בכדור לפני שהוא עף", "רמז", "web"],
-  taxi: ["מטוס ומנוף", "גוררים את המטוס אל הוו הזוהר", "רמז", "plane"],
-  drop: ["מטוס ומנוף", "נוגעים בוו כשהכדור מעל השער", "לשחרר כדור", "hook"],
-  busy: ["", "", "הכדור בדרך", "ball"],
-  goal: ["", "כוכב חדש!", "גול!", "star"],
-  done: ["", "כל הכוכבים שלך", "עוד סיבוב", "star"]
+  intro: ["", "", "בואו נשחק"],
+  kick: ["מול השוער", "גוררים את הכדור לכיוון פנוי בשער", "רמז"],
+  catch: ["הקורים של ספיידרמן", "יורים כשהכדור בתוך הטבעת", "לירות קור", "web"],
+  taxi: ["מסלול טיסה", "טסים דרך שתי הטבעות אל המנוף", "רמז"],
+  drop: ["מעל השער", "משחררים כשהקו מתחת לוו ירוק", "לשחרר", "hook"],
+  busy: ["", "", ""],
+  goal: ["", "כוכב חדש!", ""],
+  done: ["", "", "עוד סיבוב", "star"]
 };
 
 let state = "intro";
@@ -91,23 +94,29 @@ let goalX = 58;
 let ballAt = kickoff;
 let planeAt = runway;
 let hookAt = pickup;
+let keeperX = goalX;
+let keeperPhase = 0;
+let ringAt;
+let checkpoints = [];
+let checkpointIndex = 0;
 let drag;
 let frame;
-let slowUntil = 0;
 let hintTimer;
+let webTimer;
 
 function setState(next) {
   cancelAnimationFrame(frame);
   clearTimeout(hintTimer);
-  scene.classList.remove("help", "aligned", "dragging");
+  scene.classList.remove("help", "aligned", "dragging", "missed");
   showLine(guide);
   state = next;
   scene.dataset.state = next;
+  game.dataset.state = next;
   scene.dataset.level = level;
   const [title, message, label, icon] = states[next];
   if (next !== "busy" && next !== "goal") mission.textContent = title;
   mission.hidden = next === "intro" || next === "done";
-  if (message) hint.textContent = message;
+  if (next !== "busy") hint.textContent = message;
   actionText.textContent = label;
   if (icon) action.dataset.icon = icon;
   else delete action.dataset.icon;
@@ -181,23 +190,26 @@ function beginLevel() {
   goalX = level === 2 ? (playthrough % 2 ? 77 : 60) : (playthrough % 2 ? 66 : 56);
   resetPieces();
   if (level === 0) {
-    setState("kick");
-    if (playthrough === 0) hintFor("kick");
+    keeperPhase = playthrough % 2 ? Math.PI : 0;
+    startKick();
   }
   if (level === 1) startCatch();
   if (level === 2) {
+    checkpoints = playthrough % 2
+      ? [{ x: 29, y: 62 }, { x: 47, y: 53 }]
+      : [{ x: 27, y: 26 }, { x: 46, y: 24 }];
+    checkpointIndex = 0;
     placePlane(runway);
     setState("taxi");
-    if (playthrough === 0) hintFor("taxi");
+    showCheckpoint();
   }
 }
 
 function animateTarget(update) {
   let last = performance.now();
   let time = 0;
-  slowUntil = 0;
   function tick(now) {
-    const speed = reducedMotion.matches || now < slowUntil ? .47 : 1;
+    const speed = reducedMotion.matches ? .6 : 1;
     time += Math.max(0, Math.min(now - last, 48)) * speed;
     last = now;
     update(time);
@@ -207,11 +219,30 @@ function animateTarget(update) {
   frame = requestAnimationFrame(tick);
 }
 
+function startKick() {
+  setState("kick");
+  const initial = keeperPhase;
+  animateTarget(time => {
+    keeperPhase = initial + time / 580;
+    keeperX = goalX + 8.5 * Math.sin(keeperPhase);
+    place(keeper, { x: keeperX, y: 64 });
+    if (drag?.target !== undefined) scene.classList.toggle("aligned", canScore(drag.target));
+    if (scene.classList.contains("help") && !drag) {
+      const openSide = keeperX <= goalX ? 10 : -10;
+      showLine(guide, kickoff, { x: goalX + openSide, y: 64 });
+    }
+  });
+}
+
 function startCatch() {
   setState("catch");
+  ringAt = { x: playthrough % 2 ? 59 : 72, y: 38 };
+  hoop.hidden = false;
+  place(hoop, ringAt);
   animateTarget(time => {
-    const phase = time / 690 + (playthrough % 2) * Math.PI;
-    placeBall({ x: 66 + 19 * Math.sin(phase), y: 39 + 6 * Math.sin(phase * 1.35) });
+    const phase = time / 615 + (playthrough % 2 ? .9 : -.8);
+    placeBall({ x: 66 + 20 * Math.sin(phase), y: 38 + 4 * Math.sin(phase * 2) });
+    scene.classList.toggle("aligned", inHoop(ballAt, ringAt, 7.5, 6.5));
   });
 }
 
@@ -219,7 +250,7 @@ function startDrop(fromX = pickup.x) {
   setState("drop");
   const initial = Math.asin(Math.max(-1, Math.min(1, (fromX - 73) / 11)));
   animateTarget(time => {
-    const x = 73 + 11 * Math.sin(initial + time / 650);
+    const x = 73 + 11 * Math.sin(initial + time / 530);
     placeHook({ x, y: pickup.y });
     placeBall({ x, y: 45 });
     showLine(guide, ballAt, { x, y: 65 });
@@ -228,7 +259,7 @@ function startDrop(fromX = pickup.x) {
 }
 
 function dropAligned(x) {
-  return Math.abs(x - goalX) <= 9;
+  return Math.abs(x - goalX) <= 7;
 }
 
 function updateStars() {
@@ -279,26 +310,42 @@ function aimX(dx, dy) {
   return kickoff.x + dx * (kickoff.y - 64) / Math.max(-dy, 2);
 }
 
+function canScore(x) {
+  return Math.abs(x - goalX) <= 13 && Math.abs(x - keeperX) > 5;
+}
+
 async function kick(dx, dy) {
   if (dy > -4) return hintFor("kick");
   setState("busy");
   notes([262, 440, 660], { interval: .07, wave: "triangle", volume: .065 });
   const x = aimX(dx, dy);
-  if (Math.abs(x - goalX) <= 12) {
+  if (canScore(x)) {
     await flyBall([kickoff, { x: (kickoff.x + x) / 2, y: 58 }, { x, y: 66 }], 580);
     await score();
   } else {
+    const blocked = Math.abs(x - goalX) <= 13;
     const edge = Math.max(8, Math.min(92, x));
     await flyBall([kickoff, { x: edge, y: 62 }, { x: edge, y: 72 }, kickoff], 750);
-    setState("kick");
-    hint.textContent = "כמעט! מכוונים שוב לשער";
-    hintFor("kick");
+    startKick();
+    hint.textContent = blocked ? "השוער עצר! נסו לכוון לצד הפנוי" : "כמעט! כוונו בין הקורות";
   }
 }
 
 async function catchBall() {
   if (state !== "catch") return;
+  clearTimeout(webTimer);
   const from = ballAt;
+  if (!inHoop(from, ringAt, 7.5, 6.5)) {
+    showLine(web, glove, ringAt);
+    scene.classList.add("missed");
+    hint.textContent = "עוד רגע! חכו שהטבעת תידלק";
+    notes([392, 330], { interval: .06, length: .12, volume: .04 });
+    webTimer = setTimeout(() => {
+      showLine(web);
+      scene.classList.remove("missed");
+    }, 180);
+    return;
+  }
   setState("busy");
   spider.classList.add("shoot");
   showLine(web, glove, from);
@@ -315,21 +362,20 @@ async function catchBall() {
   await score();
 }
 
-function dropBall() {
+async function dropBall() {
   if (state !== "drop") return;
   const from = ballAt;
   const hit = dropAligned(from.x);
   setState("busy");
   notes([659, 523, 392], { interval: .09, volume: .07 });
-  flyBall([from, { x: from.x, y: hit ? 66 : 73 }], 490, 170).then(async () => {
-    if (hit) {
-      await score();
-    } else {
-      await flyBall([ballAt, from], 470, -120);
-      startDrop(from.x);
-      hint.textContent = "כמעט! חכו שהכדור יהיה מעל השער";
-    }
-  });
+  await flyBall([from, { x: from.x, y: hit ? 66 : 73 }], 490, 170);
+  if (hit) {
+    await score();
+  } else {
+    await flyBall([ballAt, from], 470, -120);
+    startDrop(from.x);
+    hint.textContent = "כמעט! נסו לשחרר כשהקו ירוק";
+  }
 }
 
 function position(event) {
@@ -361,19 +407,43 @@ function updateDrag(event) {
       x: dy < -4 ? Math.max(1, Math.min(99, x)) : point.x,
       y: dy < -4 ? 64 : point.y
     });
-    scene.classList.toggle("aligned", dy < -4 && Math.abs(x - goalX) <= 12);
+    drag.target = dy < -4 ? x : undefined;
+    scene.classList.toggle("aligned", drag.target !== undefined && canScore(x));
     placeBall({ x: kickoff.x + dx * .18, y: kickoff.y + dy * .18 });
   } else {
     placePlane({
       x: Math.max(15, Math.min(82, drag.origin.x + dx)),
       y: Math.max(23, Math.min(71, drag.origin.y + dy))
     });
+    visitCheckpoint();
     scene.classList.toggle("aligned", canDock());
   }
 }
 
+function inHoop(point, center, width, height) {
+  return Math.abs(point.x - center.x) <= width && Math.abs(point.y - center.y) <= height;
+}
+
+function showCheckpoint() {
+  const next = checkpoints[checkpointIndex];
+  hoop.hidden = !next;
+  if (next) place(hoop, next);
+  scene.classList.toggle("route-ready", !next);
+}
+
+function visitCheckpoint() {
+  const next = checkpoints[checkpointIndex];
+  if (!next || !inHoop(planeAt, next, 8, 7)) return;
+  checkpointIndex++;
+  notes([523, 784], { interval: .06, length: .14, volume: .055 });
+  showCheckpoint();
+  if (scene.classList.contains("help")) showLine(guide, planeAt, checkpoints[checkpointIndex] || pickup);
+  hint.textContent = checkpointIndex === checkpoints.length ? "המסלול פתוח! עכשיו אל הוו" : "יפה! עכשיו אל הטבעת הבאה";
+}
+
 function canDock() {
-  return Math.abs(planeAt.x + 8 - pickup.x) <= 13 && Math.abs(planeAt.y + 4 - pickup.y) <= 12;
+  return checkpointIndex === checkpoints.length &&
+    Math.abs(planeAt.x + 8 - pickup.x) <= 11 && Math.abs(planeAt.y + 4 - pickup.y) <= 10;
 }
 
 function endDrag(event) {
@@ -395,16 +465,14 @@ function endDrag(event) {
     planeAt = runway;
     startDrop();
   } else if (event.type === "pointerup") {
-    hint.textContent = "משחררים את המטוס ליד העיגול הזוהר";
+    hint.textContent = checkpoints[checkpointIndex] ? "העבירו את המטוס דרך הטבעת" : "משחררים ליד הוו הזוהר";
   }
 }
 
 function hintFor(kind) {
   clearTimeout(hintTimer);
   scene.classList.add("help");
-  if (kind === "kick") showLine(guide, kickoff, { x: goalX, y: 64 });
-  if (kind === "taxi") showLine(guide, planeAt, pickup);
-  if (kind === "catch") slowUntil = performance.now() + 3500;
+  if (kind === "taxi") showLine(guide, planeAt, checkpoints[checkpointIndex] || pickup);
   hintTimer = setTimeout(() => {
     scene.classList.remove("help");
     if (!drag) showLine(guide);
@@ -421,7 +489,9 @@ function nextAction() {
     notes([392, 523, 659], { wave: "triangle", volume: .075 });
   } else if (state === "drop") {
     dropBall();
-  } else if (["kick", "taxi", "catch"].includes(state)) {
+  } else if (state === "catch") {
+    catchBall();
+  } else if (state === "kick" || state === "taxi") {
     hintFor(state);
   }
 }
